@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import unittest
-import e_dicer
+import eDicer.eDicer as eDicer
 
 import os
 import sys
@@ -37,7 +37,7 @@ class TestFastaParsing(unittest.TestCase):
         '''
         Test for correct creation of SeqIO generator
         '''
-        self.seq_gen = e_dicer.parse_fasta(self.sample_fasta_file)
+        self.seq_gen = eDicer.parse_fasta(self.sample_fasta_file)
         self.assertIsInstance(self.seq_gen, types.GeneratorType)
 
     def test_parsed_sequences(self):
@@ -46,7 +46,7 @@ class TestFastaParsing(unittest.TestCase):
         Test if
         '''
         self.seqs = [seq for seq in \
-                     e_dicer.parse_fasta(self.sample_fasta_file)]
+                     eDicer.parse_fasta(self.sample_fasta_file)]
 
         self.assertIsInstance(self.seqs, list)
         self.assertEqual(len(self.seqs), 100)
@@ -90,9 +90,6 @@ TGCTGCTCGCGCTTCTGCTTGCGA"""
         with warnings.catch_warnings(record=True) as w:
             self.short = eDicer.generate_fragments(self.example_seq,
                                                    self.example_seq_len + 1)
-
-            self.assertIs(self.short, None)
-
             self.assertEqual(len(w), 1)
             self.assertIs(w[-1].category, UserWarning)
             self.assertEqual(str(w[-1].message), "Sequence (seqrec={0}) shorter than "\
