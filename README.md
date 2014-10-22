@@ -1,5 +1,7 @@
-e-dicer
+eDicer
 =======
+
+[![Build Status](https://travis-ci.org/fmaguire/eDicer.svg)](https://travis-ci.org/fmaguire/eDicer)
 
 Simulate all possible Dicer generated dsRNA fragments from a transcriptome or predicted transcriptome dataset
 
@@ -10,7 +12,4 @@ These fragments can then be aligned with resources such as the Saccharomyces cer
 Running
 -------
 
-To run code add the e-dicer directory to your `$PYTHONPATH`
-
-    export PYTHONPATH=$PYTHONPATH:$PWD
-
+To install just run `setup.py` or invoke `pip install .` within the directory
