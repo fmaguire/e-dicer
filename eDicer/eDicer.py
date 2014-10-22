@@ -82,11 +82,15 @@ def write_fasta(seq_list, output_file):
 
     if not os.access(os.path.dirname(output_file), os.W_OK):
         raise IOError('{0} is not writeable'.format(output_file))
-        return -1
 
     with open(output_file, 'a') as out_fh:
         Bio.SeqIO.write(seq_list, out_fh, 'fasta')
 
-    return 0
+def main(input_fasta, output_file, k=21):
+    '''
+    Main function to run the fragment generation if required
+    '''
 
-
+    for seq in parse_fasta(input_fasta):
+        seq_fragments = generate_fragments(seq, k)
+        write_fasta(seq_fragments, output_file)

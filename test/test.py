@@ -169,6 +169,19 @@ class TestFastaOutput(unittest.TestCase):
         with open(self.double_dummy_file, 'a'):
             os.utime(self.double_dummy_file, None)
 
+    def test_create_file(self):
+        '''
+        Test whether func creates a file that doesn't exist
+        '''
+        self.test_creation = 'test/test_file_creation.test'
+
+        if os.path.exists(self.test_creation):
+            os.remove(self.test_creation)
+
+        eDicer.write_fasta(self.frag_list, self.test_creation)
+        self.assertIs(os.path.exists(self.test_creation), True)
+        os.remove(self.test_creation)
+
 
     def test_write_error_exception(self):
         '''
@@ -187,14 +200,6 @@ class TestFastaOutput(unittest.TestCase):
         self.assertIs(filecmp.cmp(self.dummy_file, 'test/sample_fragments.fasta'),
                       True)
 
-    def test_exit_status(self):
-        '''
-        Test whether successful completion returns 0
-        '''
-
-        ret_code = eDicer.write_fasta(self.frag_list, self.dummy_file)
-        self.assertEqual(ret_code, 0)
-
     def test_append(self):
         '''
         Test output correctly appends to existing file and doesn't overwrite
@@ -210,6 +215,22 @@ class TestFastaOutput(unittest.TestCase):
         os.remove(self.dummy_file)
         os.remove(self.double_dummy_file)
 
+class TestMain(unittest.TestCase):
+    def setUp(self):
+        self.sample_short_input = 'test/sample_short_input.fasta'
+        self.sample_short_output = 'test/sample_short_output.fasta'
+        self.test_output = 'test/dummy_output.fas'
+
+    def test_main_output_is_correct(self):
+        '''
+        Test main function outputs the same output as manually created sample
+        '''
+        eDicer.main(self.sample_short_input, self.test_output)
+        self.assertIs(filecmp.cmp(self.test_output, self.sample_short_output),
+                      True)
+
+    def tearDown(self):
+        os.remove(self.test_output)
 
 if __name__=='__main__':
 
