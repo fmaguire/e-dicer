@@ -5,6 +5,7 @@ import eDicer.eDicer as eDicer
 
 import os
 import sys
+import filecmp
 
 import types
 import warnings
@@ -68,7 +69,7 @@ class TestDicerFunction(unittest.TestCase):
         '''
         Parse and grab a random seq
         '''
-        self.raw_seq = """>m.32354 g.32354  ORF g.32354 m.32354 \
+        self.raw_seq = """>m.32354 g.32354 ORF g.32354 m.32354 \
 type:3prime_partial len:74 (+) \
 comp10036_c0_seq1:394-618(+)_
 ATGCAGATGCGTGTTCGAATGTACGTTGGTGGCG\
@@ -145,6 +146,70 @@ TGCTGCTCGCGCTTCTGCTTGCGA"""
                                 "seqrec must be a single SeqRecord obj, 'test'"\
                                 " is thus invalid",
                                 eDicer.generate_fragments, 'test', 54)
+
+
+class TestFastaOutput(unittest.TestCase):
+    '''
+    Class to test the correct functioning of the fastaoutput function
+    '''
+    def setUp(self):
+
+        self.sample_fragments = 'test/sample_fragments.fasta'
+        self.frag_list = [seq for seq in \
+                          Bio.SeqIO.parse(self.sample_fragments,
+                                          'fasta')]
+        self.dummy_file = 'test/dummy.fas'
+        self.double_dummy_file = 'test/double_dummy.fas'
+
+        self.num_lines = sum(1 for line in open(self.sample_fragments))
+
+        with open(self.dummy_file, 'a'):
+            os.utime(self.dummy_file, None)
+
+        with open(self.double_dummy_file, 'a'):
+            os.utime(self.double_dummy_file, None)
+
+
+    def test_write_error_exception(self):
+        '''
+        Test whether writing to a file without write permissions throws error
+        '''
+        self.assertRaisesRegexp(IOError, '/bin/a.fas is not writeable',
+                           eDicer.write_fasta, self.frag_list, '/bin/a.fas')
+
+    def test_fasta_write(self):
+        '''
+        Test whether correctly writing fasta to file
+        '''
+        eDicer.write_fasta(self.frag_list, self.dummy_file)
+
+        self.assertIs(os.path.exists(self.dummy_file), True)
+        self.assertIs(filecmp.cmp(self.dummy_file, 'test/sample_fragments.fasta'),
+                      True)
+
+    def test_exit_status(self):
+        '''
+        Test whether successful completion returns 0
+        '''
+
+        ret_code = eDicer.write_fasta(self.frag_list, self.dummy_file)
+        self.assertEqual(ret_code, 0)
+
+    def test_append(self):
+        '''
+        Test output correctly appends to existing file and doesn't overwrite
+        '''
+        eDicer.write_fasta(self.frag_list, self.double_dummy_file)
+        eDicer.write_fasta(self.frag_list, self.double_dummy_file)
+
+        self.double_lines = sum(1 for line in open(self.double_dummy_file))
+
+        self.assertEqual(self.num_lines * 2, self.double_lines)
+
+    def tearDown(self):
+        os.remove(self.dummy_file)
+        os.remove(self.double_dummy_file)
+
 
 if __name__=='__main__':
 

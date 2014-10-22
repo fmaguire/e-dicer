@@ -71,3 +71,22 @@ def generate_fragments(seqrec, k=21):
                               for x in range(nfragments)]
 
         return labelled_fragments
+
+def write_fasta(seq_list, output_file):
+    '''
+    Output a list of SeqRecords to a file
+    input:  seq_list
+            output_file
+    output: exit_status
+    '''
+
+    if not os.access(os.path.dirname(output_file), os.W_OK):
+        raise IOError('{0} is not writeable'.format(output_file))
+        return -1
+
+    with open(output_file, 'a') as out_fh:
+        Bio.SeqIO.write(seq_list, out_fh, 'fasta')
+
+    return 0
+
+
