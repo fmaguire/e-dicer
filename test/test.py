@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import unittest
 import eDicer.eDicer as eDicer
@@ -65,23 +65,24 @@ class TestDicerFunction(unittest.TestCase):
     from a single SeqRecord
     '''
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         '''
         Parse and grab a random seq
         '''
-        self.raw_seq = """>m.32354 g.32354 ORF g.32354 m.32354 \
-type:3prime_partial len:74 (+) \
-comp10036_c0_seq1:394-618(+)_
-ATGCAGATGCGTGTTCGAATGTACGTTGGTGGCG\
-TGCTGCTCGCGCTTCTGCTTGCGA"""
-        self.example_seq = Bio.SeqIO.parse(StringIO.StringIO(self.raw_seq), "fasta").next()
+        cls.raw_seq = ">m.32354 g.32354 ORF g.32354 m.32354 "\
+                      "type:3prime_partial len:74 (+) "\
+                      "comp10036_c0_seq1:394-618(+)_\n"\
+                      "ATGCAGATGCGTGTTCGAATGTACGTTGGTGGCG"\
+                      "TGCTGCTCGCGCTTCTGCTTGCGA"
+        cls.example_seq = Bio.SeqIO.parse(StringIO.StringIO(cls.raw_seq), "fasta").next()
 
-        self.example_21_frag_file = "test/sample_fragments.fasta"
+        cls.example_21_frag_file = "test/sample_fragments.fasta"
 
-        self.example_frags = [seqrecord for seqrecord in \
-                             Bio.SeqIO.parse(self.example_21_frag_file, "fasta")]
+        cls.example_frags = [seqrecord for seqrecord in \
+                             Bio.SeqIO.parse(cls.example_21_frag_file, "fasta")]
 
-        self.example_seq_len = len(self.example_seq.seq)
+        cls.example_seq_len = len(cls.example_seq.seq)
 
     def test_sequence_too_short(self):
         '''
@@ -152,22 +153,24 @@ class TestFastaOutput(unittest.TestCase):
     '''
     Class to test the correct functioning of the fastaoutput function
     '''
-    def setUp(self):
 
-        self.sample_fragments = 'test/sample_fragments.fasta'
-        self.frag_list = [seq for seq in \
-                          Bio.SeqIO.parse(self.sample_fragments,
+    @classmethod
+    def setUpClass(cls):
+
+        cls.sample_fragments = 'test/sample_fragments.fasta'
+        cls.frag_list = [seq for seq in \
+                          Bio.SeqIO.parse(cls.sample_fragments,
                                           'fasta')]
-        self.dummy_file = 'test/dummy.fas'
-        self.double_dummy_file = 'test/double_dummy.fas'
+        cls.dummy_file = 'test/dummy.fas'
+        cls.double_dummy_file = 'test/double_dummy.fas'
 
-        self.num_lines = sum(1 for line in open(self.sample_fragments))
+        cls.num_lines = sum(1 for line in open(cls.sample_fragments))
 
-        with open(self.dummy_file, 'a'):
-            os.utime(self.dummy_file, None)
+        with open(cls.dummy_file, 'a'):
+            os.utime(cls.dummy_file, None)
 
-        with open(self.double_dummy_file, 'a'):
-            os.utime(self.double_dummy_file, None)
+        with open(cls.double_dummy_file, 'a'):
+            os.utime(cls.double_dummy_file, None)
 
     def test_create_file(self):
         '''
@@ -211,9 +214,10 @@ class TestFastaOutput(unittest.TestCase):
 
         self.assertEqual(self.num_lines * 2, self.double_lines)
 
-    def tearDown(self):
-        os.remove(self.dummy_file)
-        os.remove(self.double_dummy_file)
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(cls.dummy_file)
+        os.remove(cls.double_dummy_file)
 
 class TestMain(unittest.TestCase):
     def setUp(self):
