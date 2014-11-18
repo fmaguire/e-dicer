@@ -18,11 +18,45 @@ def parse_fasta(fasta_file_name):
     seq_generator = Bio.SeqIO.parse(fasta_file_name, "fasta")
     return seq_generator
 
-def generate_fragments(seqrec, k=21):
+def create_bt2_index(reference_sequences_fn, r_seed=7):
+    '''
+    Function which takes in a fasta file name generates its bowtie2 index
+    and returns the list of bowtie2 index filenames
+    input: reference_sequences_fn file name of fasta file to use as reference
+    output: list of filenames that make up index
+    '''
+
+    if not os.path.exists(reference_sequences_fn):
+        raise ValueError('File does not exist: {0}'.format(reference_sequences_fn))
+
+    # remove extension if it exists
+    bt2_index_base = "eDicer_" + os.path.splitext(reference_sequences_fn)[0]
+    devnull = open(os.devnull, 'w')
+    bowtie2_build_command = 'bowtie2-build '
+                            '--seed {0} -f {1} {2}'.format(r_seed,
+                                                           reference_sequences_fn,
+                                                           bt2_index_base)
+
+    # suppress stdout but maintain stderr defaul in case it fails
+    ret_code = subprocess.call(bowtie2_build_command.split(),
+                               stdout=devnull)
+
+    if ret_code is not 0:
+        raise OSError('Bowtie2 failed: {0}'.format(bowtie2_build_command))
+
+    devnull.close()
+
+    output_files = glob.glob(bt2_index_base + '.*')
+    output_files.sort()
+
+    return output_files
+
+
+def generate_fragments(seqrec, k=23):
     '''
     Function to generate all possible contiguous k-length fragments of a
     specific seq
-    input:   k - fragment size default is 21bp
+    input:   k - fragment size default is 23bp
            seq - seqrecord containing seq for fragmentation
     output: seq_fragments - list of seqrecords containing all the fragments
     '''
@@ -86,7 +120,7 @@ def write_fasta(seq_list, output_file):
     with open(output_file, 'a') as out_fh:
         Bio.SeqIO.write(seq_list, out_fh, 'fasta')
 
-def main(input_fasta, output_file, k=21):
+def main(input_fasta, output_file, k=23):
     '''
     Main function to run the fragment generation if required
     '''

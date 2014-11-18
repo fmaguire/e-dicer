@@ -149,6 +149,51 @@ class TestDicerFunction(unittest.TestCase):
                                 eDicer.generate_fragments, 'test', 54)
 
 
+class TestBW2IndexCreation(unittest.TestCase):
+    '''
+    Class to test the correct creation of bw2 indices
+    '''
+    def setUp(self):
+        self.assembly_input = os.path.join('test', 'sample_fragments.fasta')
+        self.expected_bw2_index_files = glob.glob(os.path.join('test',
+                                                              'eDicer_sample_fragments.*'))
+
+        self.expected_bw2_index_files.sort()
+
+    def test_bw2_index_creation(self):
+
+        bw2_index_files = eDicer.create_bw2_index(self.assembly_input)
+
+        # check the same number of files is output and in the list is ordered
+        # correctedly
+        self.assertEqual(bw2_index_files, self.expected_bw2_index_files)
+
+        random_index = random.randint(0, len(bw2_index_files) - 1)
+
+        with open(bw2_index_files[random_index], 'rb') as fh:
+            actual_output = fh.read()
+
+        with open(self.expected_bw2_index_files[random_index], 'rb') as fh:
+            expected_output = fh.read()
+
+        self.assertEqual(actual_output, expected_output)
+
+        for fh in bw_index_files:
+            os.remove(bw_index_files)
+
+
+    def test_non_existent_file_error(self):
+
+        self.assertRaises(ValueError, eDicer.create_bw2_index('fake_file'))
+
+
+    def test_broken_command_raises_error(self):
+
+        self.assertRaises(OSError, eDicer.create_bw2_index('real_but_not_fas.fas'))
+
+
+
+
 class TestFastaOutput(unittest.TestCase):
     '''
     Class to test the correct functioning of the fastaoutput function
@@ -220,6 +265,9 @@ class TestFastaOutput(unittest.TestCase):
         os.remove(cls.double_dummy_file)
 
 class TestMain(unittest.TestCase):
+    '''
+    Functional test for eDicer
+    '''
     def setUp(self):
         self.sample_short_input = 'test/sample_short_input.fasta'
         self.sample_short_output = 'test/sample_short_output.fasta'
