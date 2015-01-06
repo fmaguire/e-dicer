@@ -1,9 +1,39 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 import Bio
 from Bio import SeqIO
 import os.path
+import subprocess
 import warnings
+import argparse
+
+
+def get_parser():
+
+    parser = argparse.ArgumentParser(description='Generate dicer fragments'
+                                                 'from a multi-line fasta')
+    parser.add_argument('--fasta', '-f',
+                        action='store',
+                        type=str,
+                        dest='input_file',
+                        required=True,
+                        help='Input fasta file for dicer fragment generation '
+                             '(REQUIRED)')
+
+    parser.add_argument('--output', '-o',
+                        action='store',
+                        type=str,
+                        dest='output_file',
+                        default='output.fas',
+                        help='Filename for fragment output (default=%(default)s)')
+
+    parser.add_argument('--frag_size', '-k',
+                        action='store_true',
+                        dest='k',
+                        default=23,
+                        help="Fragment size to use (default=%(default)s)")
+    return parser
+
 
 def parse_fasta(fasta_file_name):
     '''
@@ -32,7 +62,7 @@ def create_bt2_index(reference_sequences_fn, r_seed=7):
     # remove extension if it exists
     bt2_index_base = "eDicer_" + os.path.splitext(reference_sequences_fn)[0]
     devnull = open(os.devnull, 'w')
-    bowtie2_build_command = 'bowtie2-build '
+    bowtie2_build_command = 'bowtie2-build '\
                             '--seed {0} -f {1} {2}'.format(r_seed,
                                                            reference_sequences_fn,
                                                            bt2_index_base)
@@ -113,6 +143,9 @@ def write_fasta(seq_list, output_file):
             output_file
     output: exit_status
     '''
+
+    if not os.access(os.path.dirname(output_file), os.W_OK):
+        os.utime(output_file, None)
 
     if not os.access(os.path.dirname(output_file), os.W_OK):
         raise IOError('{0} is not writeable'.format(output_file))

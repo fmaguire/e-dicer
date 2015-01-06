@@ -5,6 +5,8 @@ import eDicer.eDicer as eDicer
 
 import os
 import sys
+import glob
+import subprocess
 import filecmp
 
 import types
@@ -116,10 +118,10 @@ class TestDicerFunction(unittest.TestCase):
 
     def test_sequence_fragmentation(self):
         '''
-        Test for correct fragmentation of sample seq with default k (21)
+        Test for correct fragmentation of sample seq with k (21)
         '''
 
-        test_frags = eDicer.generate_fragments(self.example_seq)
+        test_frags = eDicer.generate_fragments(self.example_seq, k=21)
         for frag_index in range(len(self.example_frags)):
             self.assertEqual(str(self.example_frags[frag_index].seq),
                              str(test_frags[frag_index].seq))
@@ -154,15 +156,15 @@ class TestBW2IndexCreation(unittest.TestCase):
     Class to test the correct creation of bw2 indices
     '''
     def setUp(self):
-        self.assembly_input = os.path.join('test', 'sample_fragments.fasta')
+        self.assembly_input = os.path.join('test', 'sample_cds_seqs.fasta')
         self.expected_bw2_index_files = glob.glob(os.path.join('test',
-                                                              'eDicer_sample_fragments.*'))
+                                                              'test_bt2_index.*'))
 
         self.expected_bw2_index_files.sort()
 
     def test_bw2_index_creation(self):
 
-        bw2_index_files = eDicer.create_bw2_index(self.assembly_input)
+        bw2_index_files = eDicer.create_bt2_index(self.assembly_input)
 
         # check the same number of files is output and in the list is ordered
         # correctedly
@@ -184,13 +186,13 @@ class TestBW2IndexCreation(unittest.TestCase):
 
     def test_non_existent_file_error(self):
 
-        self.assertRaises(ValueError, eDicer.create_bw2_index('fake_file'))
+        self.assertRaises(ValueError, eDicer.create_bt2_index('fake_file'))
 
 
     def test_broken_command_raises_error(self):
 
-        self.assertRaises(OSError, eDicer.create_bw2_index('real_but_not_fas.fas'))
-
+        self.assertRaises(OSError, eDicer.create_bt2_index(os.path.join('test',
+                                                                        'real_but_not_fas.fas')))
 
 
 
