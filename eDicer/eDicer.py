@@ -41,7 +41,6 @@ def parse_fasta(fasta_file_name):
     input: fasta_file_name
     output: iterator for SeqRecord objects
     '''
-
     if not os.path.isfile(fasta_file_name):
         raise IOError("{0} can't be found".format(fasta_file_name))
 
@@ -143,7 +142,7 @@ def write_fasta(seq_list, output_file):
             output_file
     output: exit_status
     '''
-
+    output_file = os.path.abspath(output_file)
     if not os.access(os.path.dirname(output_file), os.W_OK):
         os.utime(output_file, None)
 
