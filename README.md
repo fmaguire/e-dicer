@@ -25,6 +25,14 @@ Outputs:
 -   Dataset 2 collision fasta (e.g. all collision ssequences in 2)
 
 
+
+Execution:
+
+- Collison length-merise Dataset 1 sequences in a reconstructable way
+
+- Use vsearch to identify collisions between 
+
+
 ## Requirements
 
 
