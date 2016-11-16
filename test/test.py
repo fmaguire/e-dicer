@@ -3,6 +3,8 @@
 import unittest
 import eDicer.eDicer as eDicer
 
+import six
+
 import os
 import sys
 import filecmp
@@ -13,7 +15,11 @@ import random
 
 import Bio
 from Bio import SeqIO
-import StringIO
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 class TestFastaParsing(unittest.TestCase):
     '''
@@ -75,7 +81,7 @@ class TestDicerFunction(unittest.TestCase):
                       "comp10036_c0_seq1:394-618(+)_\n"\
                       "ATGCAGATGCGTGTTCGAATGTACGTTGGTGGCG"\
                       "TGCTGCTCGCGCTTCTGCTTGCGA"
-        cls.example_seq = Bio.SeqIO.parse(StringIO.StringIO(cls.raw_seq), "fasta").next()
+        cls.example_seq = six.next(Bio.SeqIO.parse(StringIO(cls.raw_seq), "fasta"))
 
         cls.example_21_frag_file = "test/sample_fragments.fasta"
 
