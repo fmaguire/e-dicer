@@ -1,9 +1,13 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 import Bio
 from Bio import SeqIO
 import os.path
 import warnings
+import glob
+import sys
+import os
+import shutil
 
 def parse_fasta(fasta_file_name):
     '''
@@ -86,7 +90,9 @@ def write_fasta(seq_list, output_file):
     with open(output_file, 'a') as out_fh:
         Bio.SeqIO.write(seq_list, out_fh, 'fasta')
 
-def main(input_fasta, output_file, k=21):
+
+
+def edicer(input_fasta, output_file, k=21):
     '''
     Main function to run the fragment generation if required
     '''
@@ -94,3 +100,91 @@ def main(input_fasta, output_file, k=21):
     for seq in parse_fasta(input_fasta):
         seq_fragments = generate_fragments(seq, k)
         write_fasta(seq_fragments, output_file)
+
+
+def main(args):
+    '''
+    Main runner function to dice and evaluate collisions against a db
+    '''
+
+    # check arguments
+
+    if len(args) != 5:
+        print("Requires 4 arguments : run.py QUERY_FASTA DB_FOLDER K RUN_NAME")
+        sys.exit(1)
+
+    input_fp = os.path.abspath(args[1])
+    db_folder = os.path.abspath(args[2])
+    k = int(args[3])
+    run_name = args[4]
+
+    if not os.path.isfile(input_fp):
+        print("{} does not exist".format(input_fp))
+        sys.exit(1)
+
+    dbfiles = glob.glob(os.path.join(db_folder, '*.fas'))
+    if len(dbfiles) == 0:
+        print("Cannot find any db files in {} (need .fas) suffix".format(db_folder))
+        sys.exit(1)
+
+
+    run_dir = '{}_k{}_output'.format(run_name, k)
+
+    if not os.path.isdir(run_dir):
+        os.mkdir(run_dir)
+
+
+    fragments = os.path.join(run_dir,
+                             os.path.split(input_fp)[-1] + "_fragments")
+
+    if not os.path.isfile(fragments):
+        print("eDicing {}".format(input_fp))
+        edicer(input_fp, fragments, k)
+
+    db_dir = os.path.join(run_dir, "db")
+    if not os.path.isdir(db_dir):
+        os.mkdir(db_dir)
+
+    for db in dbfiles:
+        name = os.path.splitext(os.path.split(db)[-1])[0]
+
+        folder = os.path.join(run_dir, "db", name)
+
+        if not os.path.isdir(folder):
+            os.mkdir(folder)
+
+        fasta = os.path.join(folder, name)
+
+        if not os.path.isfile(fasta):
+            shutil.copyfile(db, fasta)
+
+        bowtie_index = fasta + '.index'
+
+
+        if len(bowtie_index + '*') == 0:
+            cmd = "bowtie-build {} {} &>/dev/null".format(fasta, bowtie_index)
+            print("Building index {}".format(fasta))
+            exit = os.system(cmd)
+            if exit != 0:
+                print("Failure: {}".format(cmd))
+                sys.exit(1)
+
+        collisions = (os.path.join(folder,
+                                   name + '_collisions'),
+                      os.path.join(folder,
+                                   name + '_summary'))
+
+        if not os.path.isfile(collisions[0]) or not os.path.isfile(collisions[1]):
+            # need to compute -v for 95% match
+            mismatches = int(k * 0.05)
+            print("Mapping {}".format(fasta))
+            cmd = "bowtie -f -v {} -a {} {} > {} 2> {}".format(mismatches,
+                                                               bowtie_index,
+                                                               fragments,
+                                                               collisions[0],
+                                                               collisions[1])
+            exit = os.system(cmd)
+            if exit != 0:
+                print("Failure: {}".format(cmd))
+                sys.exit(1)
+
