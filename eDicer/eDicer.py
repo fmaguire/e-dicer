@@ -10,6 +10,7 @@ import os
 import shutil
 from joblib import Parallel, delayed
 import multiprocessing
+import pickle
 
 def parse_fasta(fasta_file_name):
     '''
@@ -111,12 +112,13 @@ def collision_search(search_params):
     folder = search_params[2]
     fasta = search_params[3]
     fragments = search_params[4]
+    db = search_params[5]
 
     bowtie_index = fasta + '.index'
 
     if len(glob.glob(bowtie_index + '*')) == 0:
-        cmd = "bowtie-build {} {}".format(fasta, bowtie_index)
-        print("Building index {} > /dev/null 2>&1".format(fasta))
+        cmd = "bowtie-build {} {} > /dev/null 2>&1".format(fasta, bowtie_index)
+        print("Building index {}".format(fasta))
         exit = os.system(cmd)
         if exit != 0:
             print("Failure: {}".format(cmd))
@@ -138,8 +140,30 @@ def collision_search(search_params):
             print("Failure: {}".format(cmd))
             sys.exit(1)
 
+        cmd = 'grep -v "^>" {} | wc -m >> {}'.format(db, collisions[1])
+        exit = os.system(cmd)
 
     return collisions[1]
+
+def summarise_results(results, run_dir):
+    '''
+    Summarise collision results
+    '''
+    data = {"source": [], "collision_count": [], 'size':[]}
+    for fp in results:
+        query = os.path.split(fp)[-1].split("_summary")[0]
+        with open(fp) as fh:
+            output = [x.strip() for x in fh.readlines()]
+            alignments = output[-2]
+            size = int(output[-1])
+            count = int(alignments.split()[1])
+        data['source'].append(query)
+        data['collision_count'].append(count)
+        data['size'].append(size)
+
+    with open(os.path.join(run_dir, "collision_summary.pkl"), 'wb') as fh:
+        pickle.dump(data, fh)
+
 
 def main(args):
     '''
@@ -201,14 +225,12 @@ def main(args):
         if not os.path.isfile(fasta):
             shutil.copyfile(db, fasta)
 
-        search_params.append((mismatches, name, folder, fasta, fragments))
-
-    print(search_params)
+        search_params.append((mismatches, name, folder, fasta, fragments, db))
 
     num_cores = multiprocessing.cpu_count()
 
     results = Parallel(n_jobs=num_cores)(delayed(collision_search)(x) for x in search_params)
 
-    print(results)
+    summarise_results(results, run_dir)
 
 
