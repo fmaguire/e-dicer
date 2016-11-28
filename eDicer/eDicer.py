@@ -8,6 +8,8 @@ import glob
 import sys
 import os
 import shutil
+from joblib import Parallel, delayed
+import multiprocessing
 
 def parse_fasta(fasta_file_name):
     '''
@@ -102,6 +104,43 @@ def edicer(input_fasta, output_file, k=21):
         write_fasta(seq_fragments, output_file)
 
 
+def collision_search(search_params):
+
+    mismatches = search_params[0]
+    name = search_params[1]
+    folder = search_params[2]
+    fasta = search_params[3]
+    fragments = search_params[4]
+
+    bowtie_index = fasta + '.index'
+
+    if len(glob.glob(bowtie_index + '*')) == 0:
+        cmd = "bowtie-build {} {}".format(fasta, bowtie_index)
+        print("Building index {} > /dev/null 2>&1".format(fasta))
+        exit = os.system(cmd)
+        if exit != 0:
+            print("Failure: {}".format(cmd))
+            sys.exit(1)
+
+    collisions = (os.path.join(folder, name + '_collisions'),
+                  os.path.join(folder, name + '_summary'))
+
+    if not os.path.isfile(collisions[0]) or not os.path.isfile(collisions[1]):
+        # need to compute -v for 95% match
+        print("Mapping {}".format(fasta))
+        cmd = "bowtie -f -v {} -a {} {} > {} 2> {}".format(mismatches,
+                                                           bowtie_index,
+                                                           fragments,
+                                                           collisions[0],
+                                                           collisions[1])
+        exit = os.system(cmd)
+        if exit != 0:
+            print("Failure: {}".format(cmd))
+            sys.exit(1)
+
+
+    return collisions[1]
+
 def main(args):
     '''
     Main runner function to dice and evaluate collisions against a db
@@ -145,10 +184,14 @@ def main(args):
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
 
+    mismatches = int(k * 0.05)
+
+    search_params = []
+
     for db in dbfiles:
         name = os.path.splitext(os.path.split(db)[-1])[0]
 
-        folder = os.path.join(run_dir, "db", name)
+        folder = os.path.join(db_dir, name)
 
         if not os.path.isdir(folder):
             os.mkdir(folder)
@@ -158,33 +201,14 @@ def main(args):
         if not os.path.isfile(fasta):
             shutil.copyfile(db, fasta)
 
-        bowtie_index = fasta + '.index'
+        search_params.append((mismatches, name, folder, fasta, fragments))
 
+    print(search_params)
 
-        if len(bowtie_index + '*') == 0:
-            cmd = "bowtie-build {} {} &>/dev/null".format(fasta, bowtie_index)
-            print("Building index {}".format(fasta))
-            exit = os.system(cmd)
-            if exit != 0:
-                print("Failure: {}".format(cmd))
-                sys.exit(1)
+    num_cores = multiprocessing.cpu_count()
 
-        collisions = (os.path.join(folder,
-                                   name + '_collisions'),
-                      os.path.join(folder,
-                                   name + '_summary'))
+    results = Parallel(n_jobs=num_cores)(delayed(collision_search)(x) for x in search_params)
 
-        if not os.path.isfile(collisions[0]) or not os.path.isfile(collisions[1]):
-            # need to compute -v for 95% match
-            mismatches = int(k * 0.05)
-            print("Mapping {}".format(fasta))
-            cmd = "bowtie -f -v {} -a {} {} > {} 2> {}".format(mismatches,
-                                                               bowtie_index,
-                                                               fragments,
-                                                               collisions[0],
-                                                               collisions[1])
-            exit = os.system(cmd)
-            if exit != 0:
-                print("Failure: {}".format(cmd))
-                sys.exit(1)
+    print(results)
+
 
