@@ -156,7 +156,11 @@ def summarise_results(results, run_dir):
             output = [x.strip() for x in fh.readlines()]
             alignments = output[-2]
             size = int(output[-1])
-            count = int(alignments.split()[1])
+
+            if alignments.startswith("No alignments"):
+                count = 0
+            else:
+                count = int(alignments.split()[1])
         data['source'].append(query)
         data['collision_count'].append(count)
         data['size'].append(size)
