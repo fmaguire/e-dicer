@@ -102,7 +102,8 @@ def edicer(input_fasta, output_file, k=21):
 
     for seq in parse_fasta(input_fasta):
         seq_fragments = generate_fragments(seq, k)
-        write_fasta(seq_fragments, output_file)
+        if seq_fragments is not None:
+            write_fasta(seq_fragments, output_file)
 
 
 def collision_search(search_params):
@@ -189,7 +190,7 @@ def main(args):
         print("{} does not exist".format(input_fp))
         sys.exit(1)
 
-    dbfiles = glob.glob(os.path.join(db_folder, '*.fas'))
+    dbfiles = glob.glob(os.path.join(db_folder, '*no_N.fas'))
     if len(dbfiles) == 0:
         print("Cannot find any db files in {} (need .fas) suffix".format(db_folder))
         sys.exit(1)
