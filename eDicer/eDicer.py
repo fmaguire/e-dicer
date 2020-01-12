@@ -114,6 +114,7 @@ def collision_search(search_params):
     fasta = search_params[3]
     fragments = search_params[4]
     db = search_params[5]
+    k = search_params[6]
 
     bowtie_index = fasta + '.index'
 
@@ -125,46 +126,71 @@ def collision_search(search_params):
             print("Failure: {}".format(cmd))
             sys.exit(1)
 
-    collisions = (os.path.join(folder, name + '_collisions'),
-                  os.path.join(folder, name + '_summary'))
+    collisions = os.path.join(folder, name + '_collisions')
+    collisions_summary = os.path.join(folder, name + '_summary')
 
-    if not os.path.isfile(collisions[0]) or not os.path.isfile(collisions[1]):
+    if not os.path.isfile(collisions) or not os.path.isfile(collisions_summary):
         # need to compute -v for 95% match
         print("Mapping {}".format(fasta))
-        cmd = "bowtie -f -v {} -a {} {} > {} 2> {}".format(mismatches,
+        cmd = "bowtie -f -v {} -a {} {} > {} 2> {} ".format(mismatches,
                                                            bowtie_index,
                                                            fragments,
-                                                           collisions[0],
-                                                           collisions[1])
+                                                           collisions,
+                                                           collisions_summary)
         exit = os.system(cmd)
         if exit != 0:
             print("Failure: {}".format(cmd))
             sys.exit(1)
 
-        cmd = 'grep -v "^>" {} | wc -m >> {}'.format(db, collisions[1])
-        exit = os.system(cmd)
+        # get the kmer count statistics for query and db
+        query_hashes = os.path.join(folder, name + '_query.jf')
+        db_hashes = os.path.join(folder, name + '_db.jf')
+        cmds = ["jellyfish count -m {} -s 50000 -o {} {}".format(k, query_hashes, fragments),
+                'echo "query {} {}" >> {}'.format(fragments, k, collisions_summary),
+                "jellyfish stats {} >> {}".format(query_hashes, collisions_summary),
+                "jellyfish count -m {} -s 50000 -o {} {}".format(k, db_hashes, db),
+                'echo "\ndb {}" >> {}'.format(bowtie_index, collisions_summary),
+                "jellyfish stats {} >> {}".format(db_hashes, collisions_summary),
+                'rm {} {} {}'.format(collisions, query_hashes, db_hashes)]
 
-    return collisions[1]
+        for cmd in cmds:
+            exit = os.system(cmd)
+            if exit != 0:
+                print("Failure: {}".format(cmd))
+                sys.exit(1)
+
+    return collisions_summary
 
 def summarise_results(results, run_dir):
     '''
     Summarise collision results
     '''
-    data = {"source": [], "collision_count": [], 'size':[]}
-    for fp in results:
-        query = os.path.split(fp)[-1].split("_summary")[0]
-        with open(fp) as fh:
-            output = [x.strip() for x in fh.readlines()]
-            alignments = output[-2]
-            size = int(output[-1])
+    data = {"db": [], "collision_count": [], 'db_kmer_count': [], 'query': [], 'k': [],
+            'query_kmer_count': [], 'db_kmer_count_distinct': [], 'query_kmer_count_distinct': []}
 
-            if alignments.startswith("No alignments"):
-                count = 0
-            else:
-                count = int(alignments.split()[1])
-        data['source'].append(query)
-        data['collision_count'].append(count)
-        data['size'].append(size)
+
+    for fp in results:
+        data['db'].append(os.path.split(fp)[-1].split("_summary")[0])
+
+
+        with open(fp) as fh:
+            for line in fh:
+                if line.startswith('No alignments'):
+                    data['collision_count'].append(0)
+                elif line.startswith('Reported'):
+                    data['collision_count'].append(line.split()[1])
+                elif line.startswith('query'):
+                    data['query'].append(line.split()[1])
+                    data['k'].append(line.strip().split()[2])
+
+                    # skip unique kmers
+                    next(fh)
+                    data['query_kmer_count_distinct'].append(int(next(fh).strip().split()[-1]))
+                    data['query_kmer_count'].append(int(next(fh).strip().split()[-1]))
+                elif line.startswith('db'):
+                    next(fh)
+                    data['db_kmer_count_distinct'].append(int(next(fh).strip().split()[-1]))
+                    data['db_kmer_count'].append(int(next(fh).strip().split()[-1]))
 
     with open(os.path.join(run_dir, "collision_summary.pkl"), 'wb') as fh:
         pickle.dump(data, fh)
@@ -176,7 +202,6 @@ def main(args):
     '''
 
     # check arguments
-
     if len(args) != 5:
         print("Requires 4 arguments : run.py QUERY_FASTA DB_FOLDER K RUN_NAME")
         sys.exit(1)
@@ -190,7 +215,7 @@ def main(args):
         print("{} does not exist".format(input_fp))
         sys.exit(1)
 
-    dbfiles = glob.glob(os.path.join(db_folder, '*no_N.fas'))
+    dbfiles = glob.glob(os.path.join(db_folder, '*.fas'))
     if len(dbfiles) == 0:
         print("Cannot find any db files in {} (need .fas) suffix".format(db_folder))
         sys.exit(1)
@@ -230,7 +255,7 @@ def main(args):
         if not os.path.isfile(fasta):
             shutil.copyfile(db, fasta)
 
-        search_params.append((mismatches, name, folder, fasta, fragments, db))
+        search_params.append((mismatches, name, folder, fasta, fragments, db, k))
 
     num_cores = multiprocessing.cpu_count()
 
