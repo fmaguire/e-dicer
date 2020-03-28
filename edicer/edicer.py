@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 
+__version__ = '1.0.0'
+
 import Bio
 from Bio import SeqIO
 import os.path
-import warnings
 import glob
+import logging
 import sys
 import os
 import shutil
 from joblib import Parallel, delayed
 import multiprocessing
 import pickle
+
 
 def parse_fasta(fasta_file_name):
     '''
@@ -20,10 +23,11 @@ def parse_fasta(fasta_file_name):
     '''
 
     if not os.path.isfile(fasta_file_name):
-        raise IOError("{0} can't be found".format(fasta_file_name))
+        raise IOError(f"{fasta_file_name} can't be found")
 
     seq_generator = Bio.SeqIO.parse(fasta_file_name, "fasta")
     return seq_generator
+
 
 def generate_fragments(seqrec, k=21):
     '''
@@ -36,20 +40,18 @@ def generate_fragments(seqrec, k=21):
 
     #validate input
     if type(k) is not int or not int(k) > 0:
-        raise ValueError("K must be an int > 0, "\
-                         "'{0}' is thus invalid".format(str(k)))
+        logging.error(f"K must be an int > 0, '{k}' is thus invalid")
+        sys.exit(1)
 
     if type(seqrec) is not Bio.SeqRecord.SeqRecord:
-        raise ValueError("seqrec must be a single SeqRecord obj, "\
-                         "'{0}' is thus invalid".format(str(seqrec)))
+        logging.error("seqrec must be a single SeqRecord obj, '{seqrec}' is thus invalid")
+        sys.exit(1)
 
     seq_len = len(seqrec.seq)
 
     if k > seq_len:
         # raise warning here if sequence is shorter than k
-        warnings.warn("Sequence (seqrec={0}) shorter than k (k={1}) "\
-                      "therefore discarding".format(seqrec.id, k),
-                      UserWarning)
+        logging.warn(f"Sequence (seqrec={seqrec.id}) shorter than k (k={k}) therefore discarding")
         return None
 
     elif seq_len >= k:
@@ -69,12 +71,7 @@ def generate_fragments(seqrec, k=21):
                                 seq=fragments[x].seq,
                                 id=seqrec.id,
                                 name=fragments[x].name,
-                                description=\
-                                "{0} [{1}bp fragment {2} of {3}]"\
-                                "".format(fragments[x].description,
-                                          k,
-                                          x+1,
-                                          nfragments)) \
+                                description=f"{fragments[x].description} [{k}bp fragment {x+1} of {nfragments}]") \
                               for x in range(nfragments)]
 
         return labelled_fragments
@@ -88,7 +85,8 @@ def write_fasta(seq_list, output_file):
     '''
 
     if not os.access(os.path.dirname(output_file), os.W_OK):
-        raise IOError('{0} is not writeable'.format(output_file))
+        logging.error(f"{output_file} is not writeable")
+        sys.exit(1)
 
     with open(output_file, 'a') as out_fh:
         Bio.SeqIO.write(seq_list, out_fh, 'fasta')
@@ -119,11 +117,11 @@ def collision_search(search_params):
     bowtie_index = fasta + '.index'
 
     if len(glob.glob(bowtie_index + '*')) == 0:
-        cmd = "bowtie-build {} {} > /dev/null 2>&1".format(fasta, bowtie_index)
-        print("Building index {}".format(fasta))
+        cmd = "bowtie-build {fasta} {bowtie_index} > /dev/null 2>&1"
+        logging.info(f"Building index {fasta}")
         exit = os.system(cmd)
         if exit != 0:
-            print("Failure: {}".format(cmd))
+            logging.error(f"Failure: {cmd}")
             sys.exit(1)
 
     collisions = os.path.join(folder, name + '_collisions')
@@ -131,32 +129,29 @@ def collision_search(search_params):
 
     if not os.path.isfile(collisions) or not os.path.isfile(collisions_summary):
         # need to compute -v for 95% match
-        print("Mapping {}".format(fasta))
-        cmd = "bowtie -f -v {} -a {} {} > {} 2> {} ".format(mismatches,
-                                                           bowtie_index,
-                                                           fragments,
-                                                           collisions,
-                                                           collisions_summary)
+        logging.info(f"Mapping {fasta}")
+        cmd = f"bowtie -f -v {mismatches} -a {bowtie_index} {fragments} > {collisions} 2> {collisions_summary}"
+
         exit = os.system(cmd)
         if exit != 0:
-            print("Failure: {}".format(cmd))
+            logging.error(f"Failure: {cmd}")
             sys.exit(1)
 
         # get the kmer count statistics for query and db
         query_hashes = os.path.join(folder, name + '_query.jf')
         db_hashes = os.path.join(folder, name + '_db.jf')
-        cmds = ["jellyfish count -m {} -s 50000 -o {} {}".format(k, query_hashes, fragments),
-                'echo "query {} {}" >> {}'.format(fragments, k, collisions_summary),
-                "jellyfish stats {} >> {}".format(query_hashes, collisions_summary),
-                "jellyfish count -m {} -s 50000 -o {} {}".format(k, db_hashes, db),
+        cmds = [f"jellyfish count -m {k} -s 50000 -o {query_hashes} {fragments}",
+                f"echo 'query {fragments} {k}' >> {collisions_summary}",
+                f"jellyfish stats {query_hashes} >> {collisions_summary}",
+                f"jellyfish count -m {k} -s 50000 -o {db_hashes} {db}",
                 'echo "\ndb {}" >> {}'.format(bowtie_index, collisions_summary),
-                "jellyfish stats {} >> {}".format(db_hashes, collisions_summary),
-                'rm {} {} {}'.format(collisions, query_hashes, db_hashes)]
+                f"jellyfish stats {db_hashes} >> {collisions_summary}",
+                f"rm {collisions} {query_hashes} {db_hashes}"]
 
         for cmd in cmds:
             exit = os.system(cmd)
             if exit != 0:
-                print("Failure: {}".format(cmd))
+                logging.error(f"Failure: {cmd}")
                 sys.exit(1)
 
     return collisions_summary
@@ -195,33 +190,78 @@ def summarise_results(results, run_dir):
     with open(os.path.join(run_dir, "collision_summary.pkl"), 'wb') as fh:
         pickle.dump(data, fh)
 
+def check_if_valid_fasta(fp):
+    """
+    Checks if a file is a valid fasta file
+    """
+    try:
+        parse = SeqIO.parse(fp, "fasta")
+    except b:
+        pass
 
-def main(args):
+def check_dependencies():
+    """
+    Check all dependencies exist and work
+    """
+    missing=False
+    for program in ['bowtie --version', 'bowtie-build']:
+        try:
+            output = subprocess.run(program, shell=True, check=True,
+                    stdout=subprocess.PIPE, encoding='utf-8')
+            logging.debug(f"Tool {program} is installed: {output.stdout}")
+        except:
+            logging.error(f"Tool {program} is not installed")
+            missing = True
+
+    if missing:
+        logging.error("One or more dependencies are missing please install")
+        sys.exit(1)
+    else:
+        logging.debug("All dependencies found")
+
+
+def run(args):
     '''
     Main runner function to dice and evaluate collisions against a db
     '''
+    check_dependencies()
 
-    # check arguments
-    if len(args) != 5:
-        print("Requires 4 arguments : run.py QUERY_FASTA DB_FOLDER K RUN_NAME")
-        sys.exit(1)
+    # start logging
+    if args.debug or args.verbose:
+        logging.basicConfig(format='%(levelname)s:%(message)s',
+                            level=logging.DEBUG,
+                            handlers=[logging.FileHandler(f"{run_name}.log"),
+                                      logging.StreamHandler()])
+    else:
+        logging.basicConfig(format='%(levelname)s:%(message)s',
+                            level=logging.INFO,
+                            handlers=[logging.FileHandler(f"{run_name}.log"),
+                                      logging.StreamHandler()])
 
-    input_fp = os.path.abspath(args[1])
-    db_folder = os.path.abspath(args[2])
-    k = int(args[3])
-    run_name = args[4]
+    logging.info(f"Started ETD '{run_name}' with input '{args.input_genome}'")
 
-    if not os.path.isfile(input_fp):
-        print("{} does not exist".format(input_fp))
-        sys.exit(1)
 
-    dbfiles = glob.glob(os.path.join(db_folder, '*.fas'))
+
+
+
+
+
+
+    input_fp = os.path.abspath(args.query)
+    db_folder = os.path.abspath(args.database_dir)
+
+
+    # check
+    dbfiles = list[glob.glob(os.path.join(db_folder, '*.fas'))]
+    dbfiles += list[glob.glob(os.path.join(db_folder, "*.fasta"))]
+    dbfiles += list[glob.glob(os.path.join(db_folder, "*.fna"))]
+    dbfiles += list[glob.glob(os.path.join(db_folder, "*.fa"))]
     if len(dbfiles) == 0:
-        print("Cannot find any db files in {} (need .fas) suffix".format(db_folder))
+        logging.error(f"Cannot find any fasta files in {args.database_dir}")
         sys.exit(1)
 
 
-    run_dir = '{}_k{}_output'.format(run_name, k)
+    run_dir = f"{args.run_name}_k{args.frag_size}_output"
 
     if not os.path.isdir(run_dir):
         os.mkdir(run_dir)
@@ -231,14 +271,14 @@ def main(args):
                              os.path.split(input_fp)[-1] + "_fragments")
 
     if not os.path.isfile(fragments):
-        print("eDicing {}".format(input_fp))
-        edicer(input_fp, fragments, k)
+        print(f"eDicing {input_fp}")
+        edicer(input_fp, fragments, args.frag_size)
 
     db_dir = os.path.join(run_dir, "db")
     if not os.path.isdir(db_dir):
         os.mkdir(db_dir)
 
-    mismatches = int(k * 0.05)
+    mismatches = int(args.frag_size * args.mismatches)
 
     search_params = []
 
@@ -257,9 +297,7 @@ def main(args):
 
         search_params.append((mismatches, name, folder, fasta, fragments, db, k))
 
-    num_cores = multiprocessing.cpu_count()
-
-    results = Parallel(n_jobs=num_cores)(delayed(collision_search)(x) for x in search_params)
+    results = Parallel(n_jobs=args.num_threads)(delayed(collision_search)(x) for x in search_params)
 
     summarise_results(results, run_dir)
 

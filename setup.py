@@ -1,23 +1,42 @@
 import os
-from setuptools import setup
+import sys
 
-# Utility function to read the README file.
-# Used for the long_description.  It's nice, because now 1) we have a top level
-# README file and 2) it's easier to type in the README file than to put a raw
-# string in below ...
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+if sys.argv[-1] == 'publish':
+    os.system('python setup.py sdist upload')
+    sys.exit()
+
+readme = open('README.md').read()
 setup(
-    name = "eDicer",
-    version = "0.1",
-    author = "Finlay Maguire",
-    author_email = "root@finlaymagui.re",
-    description = ("A script to simulate all possible Dicer sequence fragments"),
+    name='edicer',
+    version='1.0.1',
+    description = "A script to simulate all possible Dicer sequence fragments",
+    long_description=readme,
     license = "GPLv2",
-    keywords = "bioinformatics dicer rnai",
-    url = "https://github.com/fmaguire/e-dicer",
-    packages=['eDicer', 'test'],
-    long_description=read('README.md'),
+    author='Finlay Maguire',
+    author_email='finlaymaguire@gmail.com',
+    url='https://github.com/fmaguire/eDicer',
+    packages=[
+        'edicer',
+    ],
+    package_dir={'edicer': 'edicer'},
+    include_package_data=True,
+    install_requires=[
+    ],
+    zip_safe=False,
+    keywords='edicer',
+    classifiers=[
+        'Development Status :: 2 - Pre-Alpha',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Natural Language :: English',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: Implementation :: PyPy',
+    ],
 )
