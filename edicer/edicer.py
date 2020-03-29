@@ -3,7 +3,7 @@
 __version__ = '1.0.0'
 
 from Bio import SeqIO, SeqRecord
-import glob, sys, os, logging, json, shutil
+import glob, sys, os, logging, json, shutil, subprocess
 from joblib import Parallel, delayed
 import pandas as pd
 
@@ -138,6 +138,14 @@ def collision_search(search_params):
             elif line.startswith('query'):
                 collision_stats_data['query'] = line.split()[1]
                 collision_stats_data['fragment_size'] = line.strip().split()[2]
+
+        # calculate distinct collisions
+        logging.info(f"Calculating number of distinct collisions for {collisions}")
+        cmd = f"awk -F$'\\t' '{{print $5, $8}}' {collisions} | sort | uniq | wc -l"
+        logging.debug(f"Running command: {cmd}")
+        output = subprocess.run(cmd, shell=True, check=True,
+                        stdout=subprocess.PIPE, encoding='utf-8')
+        collision_stats_data['distinct_collision_count'] = int(output.stdout.split('\n')[0].strip())
 
         # get k-mer statistics for database
         logging.info("Calculating database fragment statistics: "
@@ -349,7 +357,8 @@ def run(args):
     if not os.path.exists(run_summary):
         summary_results = {'query': [], 'fragment_size': [], 'mismatch_proportion': [],
                            'query_kmer_count': [], 'query_kmer_count_distinct': [],
-                           'collision_count': [], 'database': [], 'db_kmer_count': [],
+                           'collision_count': [],  'distinct_collision_count': [],
+                           'database': [], 'db_kmer_count': [],
                            'db_kmer_count_distinct': []}
         for result in results:
             summary_results['query'].append(query_name)
@@ -358,6 +367,7 @@ def run(args):
             summary_results['query_kmer_count'].append(query_stats['query_kmer_count'])
             summary_results['query_kmer_count_distinct'].append(query_stats['query_kmer_count_distinct'])
             summary_results['collision_count'].append(result['collision_count'])
+            summary_results['distinct_collision_count'].append(result['distinct_collision_count'])
             summary_results['database'].append(result['db_name'])
             summary_results['db_kmer_count'].append(result['db_kmer_count'])
             summary_results['db_kmer_count_distinct'].append(result['db_kmer_count_distinct'])
@@ -371,4 +381,25 @@ def run(args):
 
     run_summary_table = os.path.join(run_name, "run_summary.tsv")
     logging.info(f"Generating results table {run_summary_table}")
-    pd.DataFrame(summary_results).to_csv(run_summary_table, sep='\t')
+    pd.DataFrame(summary_results).to_csv(run_summary_table, index=False,
+                                         sep='\t')
+
+def summarise(args):
+    """
+    Summarise a list of run_summary jsons into a single output
+    """
+
+    data = []
+    for run_summary in args.summary_jsons:
+        df = pd.read_json(run_summary)
+        data.append(df)
+    combined_data = pd.concat(data)
+
+    csv_output  = args.output + ".tsv"
+    json_output = args.output + ".json"
+    print(f"Writing combined files {args.summary_jsons} to {csv_output} and {json_output}")
+    combined_data.to_csv(csv_output, index=False, sep='\t')
+    combined_data.reset_index(drop=True).to_json(json_output)
+
+
+
