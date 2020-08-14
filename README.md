@@ -79,6 +79,7 @@ eDicer is invoked:
 This will generate an automatically named output folder:
 
 ```
+sample_cds_seqs_k21_output.log
 sample_cds_seqs_k21_output
 ├── database_collisions
 │   ├── test1
@@ -96,7 +97,28 @@ sample_cds_seqs_k21_output
 ```
 
 
+To combine results from several queries into one table:
 
+```
+> python edicer-summarise.py -h                                                                                                                                                                                                                                            
 
+usage: edicer-summarise [-h] [-v] [-i SUMMARY_JSONS [SUMMARY_JSONS ...]]
+                        [-o OUTPUT]
 
+Collate outputs from multiple eDicer runs into one file
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --version         show program's version number and exit
+  -i SUMMARY_JSONS [SUMMARY_JSONS ...], --summary_jsons SUMMARY_JSONS [SUMMARY_JSONS ...]
+                        List of run_summary.json files
+  -o OUTPUT, --output OUTPUT
+                        Combined summary output location
+```
+
+So if we ran the same query with different kmer sizes in our test data:
+
+```python edicer-summarise.py -i sample_cds_seqs_k21_output/run_summary.json sample_cds_seqs_k22_output/run_summary.json```
+
+This script will generate a single combined `combined_output.tsv` and `combined_output.json`
 
