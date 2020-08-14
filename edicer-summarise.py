@@ -3,7 +3,7 @@
 
 from edicer import edicer, utils
 import argparse
-import os
+import sys
 
 
 if __name__ == '__main__':
@@ -22,7 +22,12 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', type=str, default="combined_output",
                          help="Combined summary output location")
 
-
     args = parser.parse_args()
+
+    if len(args.summary_jsons) < 2:
+        print("\nMust provide >=2 summary json filepaths to summarise\n",
+              file=sys.stderr)
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     edicer.summarise(args)

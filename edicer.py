@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env pythom
 #-*- coding: utf-8 -*-
 
 from edicer import edicer, utils

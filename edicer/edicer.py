@@ -9,6 +9,25 @@ import pandas as pd
 
 from edicer import utils
 
+def clean_up(output_dir):
+    """
+    Removes extra files
+    """
+    logging.debug("Removing bowtie indices as keep_tmp is false")
+    for bowtie_index in glob.glob(os.path.join(output_dir, "*.ebwt")):
+        os.remove(bowtie_index)
+
+    for bowtie_index in glob.glob(os.path.join(output_dir, "*", "*", "*.ebwt")):
+        os.remove(bowtie_index)
+
+
+    logging.debug("Removing jellyfish hashes as keep_tmp is false")
+    for jellyfish_hash in glob.glob(os.path.join(output_dir, "*.jf")):
+        os.remove(jellyfish_hash)
+
+    for jellyfish_hash in glob.glob(os.path.join(output_dir, "*", "*", "*.jf")):
+        os.remove(jellyfish_hash)
+
 
 def generate_fragments(seqrec, k=21):
     '''
@@ -290,9 +309,6 @@ def run(args):
         with open(query_statistics_file, 'w') as out_fh:
             json.dump(query_stats, out_fh)
 
-        #if not args.keep_temp:
-        #    logging.debug(f"Deleting {query_hashes}")
-        #    os.remove(query_hashes)
     else:
         logging.debug(f"Query statistics exists, using: {query_statistics_file}")
         with open(query_statistics_file) as fh:
@@ -384,6 +400,10 @@ def run(args):
     pd.DataFrame(summary_results).to_csv(run_summary_table, index=False,
                                          sep='\t')
 
+    if not args.keep_tmp:
+        clean_up(run_name)
+
+
 def summarise(args):
     """
     Summarise a list of run_summary jsons into a single output
@@ -400,6 +420,4 @@ def summarise(args):
     print(f"Writing combined files {args.summary_jsons} to {csv_output} and {json_output}")
     combined_data.to_csv(csv_output, index=False, sep='\t')
     combined_data.reset_index(drop=True).to_json(json_output)
-
-
 
